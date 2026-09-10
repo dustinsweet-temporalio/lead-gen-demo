@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Durable Lead Intake</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='7' cy='4' r='2.1' fill='%23646980'/%3E%3Ccircle cx='16' cy='4' r='2.1' fill='%23646980'/%3E%3Ccircle cx='25' cy='4' r='2.1' fill='%23646980'/%3E%3Cpath d='M2.6 8.2h26.8L18.9 19.8v3.1h-5.8v-3.1z' fill='%234338ca'/%3E%3Cpath d='M16 22.9v2.4' stroke='%234338ca' stroke-width='1.8' stroke-linecap='round'/%3E%3Ccircle cx='7.2' cy='28.6' r='2.9' fill='%230b7a45'/%3E%3Ccircle cx='16' cy='28.6' r='2.9' fill='%231d4ed8'/%3E%3Ccircle cx='24.8' cy='28.6' r='2.9' fill='%23b45309'/%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="/styles.css?v=20260910j" />
+</head>
+<body>
+  <div class="wrap">
+    <!-- Row 1: identity + environment status. Row 2: mode + primary action. The usual
+         enterprise shape — who/where you are on top, what you are doing below. -->
+    <header class="topbar">
+      <div class="brand">
+        <span class="logo" aria-hidden="true">
+          <!-- Undifferentiated leads in at the top, through the funnel, sorted out into
+               the three destinations in the same colours the rest of the UI uses. -->
+          <svg viewBox="0 0 32 32" role="img">
+            <circle class="lg-in" cx="7" cy="4" r="2.1"/>
+            <circle class="lg-in" cx="16" cy="4" r="2.1"/>
+            <circle class="lg-in" cx="25" cy="4" r="2.1"/>
+            <path class="lg-funnel" d="M2.6 8.2h26.8L18.9 19.8v3.1h-5.8v-3.1z"/>
+            <path class="lg-leg" d="M16 22.9v2.4"/>
+            <circle class="lg-sales" cx="7.2" cy="28.6" r="2.9"/>
+            <circle class="lg-marketing" cx="16" cy="28.6" r="2.9"/>
+            <circle class="lg-nurture" cx="24.8" cy="28.6" r="2.9"/>
+          </svg>
+        </span>
+        <div class="brand-text">
+          <h1>Durable Lead Intake</h1>
+          <div class="subtitle" id="subtitle">Temporal running a durable lead-qualification agent</div>
+        </div>
+      </div>
+      <div class="spacer"></div>
+      <div class="health">
+        <span class="dot" id="dot-temporal">Temporal</span>
+        <span class="dot" id="dot-worker">Worker</span>
+        <span class="queue" id="queue-label"></span>
+        <a id="temporal-link" href="#" target="_blank" rel="noopener">Temporal Web UI ↗</a>
+      </div>
+    </header>
+
+    <nav class="toolbar" aria-label="Variant and actions">
+      <div class="variant-toggle" role="group" aria-label="Variant">
+        <button id="btn-agent_only" data-variant="agent_only" aria-pressed="false">
+          Agent Only<span class="vt-sub">no Temporal · nothing survives</span>
+        </button>
+        <button id="btn-agent" data-variant="agent" aria-pressed="true">
+          Agent as Workflow<span class="vt-sub">one Activity wraps the agent</span>
+        </button>
+        <button id="btn-agent_steps" data-variant="agent_steps" aria-pressed="false">
+          Activities as Tools<span class="vt-sub">each call is an Activity</span>
+        </button>
+        <button id="btn-orchestrated" data-variant="orchestrated" aria-pressed="false">
+          Fully Orchestrated<span class="vt-sub">workflow-led · human review</span>
+        </button>
+      </div>
+      <div class="spacer"></div>
+      <button class="btn submit-lead" id="open-lead">New Lead</button>
+    </nav>
+
+    <main class="stage">
+      <!-- Live run + controls (full width) -->
+      <section class="panel" id="run-panel">
+        <div class="panel-head">
+          <h2>Live run</h2>
+          <div class="head-actions">
+            <button class="btn danger small" id="crash">Crash worker</button>
+            <button class="btn ghost small" id="restart">Restart worker</button>
+            <button class="btn ghost small" id="clear">Clear</button>
+          </div>
+        </div>
+
+        <!-- Token Spend (left, 80% width) and Lead Score (right) share one row, so the
+             Execution Flow below starts higher up the page. The score card stays hidden
+             until the run finishes — or, in Fully Orchestrated, until it parks for
+             review, where the score is the whole point of the conversation. -->
+        <div class="meter-row">
+          <div class="meter" id="meter">
+            <div class="meter-head">
+              <span class="meter-title">Token Spend</span>
+              <span class="meter-cap" id="meter-cap"></span>
+            </div>
+            <div class="meter-figs">
+              <div class="fig new"><div class="num" id="fig-new">0</div><div class="lbl">New</div></div>
+              <div class="fig wasted" id="fig-wasted-wrap"><div class="num" id="fig-wasted">0</div><div class="lbl">Wasted</div></div>
+              <div class="fig total"><div class="num" id="fig-total">0</div><div class="lbl">Total</div></div>
+            </div>
+            <div class="meter-bar"><div class="seg-new" id="seg-new" style="width:0"></div><div class="seg-wasted" id="seg-wasted" style="width:0"></div></div>
+            <!-- Time Spend: elapsed x TIME_MULTIPLIER, split New/Wasted in the same
+                 proportion as the tokens. Its own heading under the bar, matching TOKEN
+                 SPEND, with the simulated tag beneath it. Aligned to the three columns
+                 above so the NEW / WASTED / TOTAL labels serve both rows. -->
+            <div class="time-head">
+              <span class="meter-title">Time Spend</span>
+              <span class="stopwatch" id="stopwatch" title="Real elapsed time (keeps running through a crash)">00:00.0</span>
+            </div>
+            <div class="sim-note" id="sim-note"></div>
+            <div class="time-row" title="Simulated: elapsed run time scaled to what one lead costs against real vendors">
+              <div class="tfig new" id="time-new">&ndash;</div>
+              <div class="tfig wasted" id="time-wasted">&ndash;</div>
+              <div class="tfig total" id="time-total">&ndash;</div>
+            </div>
+          </div>
+
+          <!-- Lead score against the routing thresholds. Always on screen so the row
+               never reflows; the VALUE stays blank ("--", bar at zero) until the run
+               finishes. The gauge is on the right so it can run the full height of the
+               card, with its threshold labels on its left. -->
+          <div class="scorebar" id="scorebar">
+            <div class="score-main">
+              <div class="score-left">
+                <div class="scorebar-head"><span class="scorebar-title">Lead score</span></div>
+                <div class="score-num empty" id="score-val">&ndash;&ndash;</div>
+                <div class="scorebar-foot" id="score-foot"></div>
+              </div>
+              <div class="score-gauge">
+                <div class="vscale" id="score-scale">
+                  <div class="vscale-fill" id="score-fill" style="height:0"></div>
+                  <div class="vtick sales" id="tick-sales"><i></i><span>sales</span></div>
+                  <div class="vtick marketing" id="tick-marketing"><i></i><span>marketing</span></div>
+                  <div class="vtick qualify" id="tick-qualify"><i></i><span>qualify</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="flow-head" id="flow-head">
+          <span class="flow-head-title">Execution flow</span>
+          <button class="flow-toggle" id="flow-toggle" aria-expanded="true" aria-label="Collapse flow">
+            <span class="chev"></span>
+          </button>
+        </div>
+
+        <div class="flow-scroll" id="flow-scroll">
+          <div class="flow" id="flow"></div>
+          <div class="ao-wrap" id="ao-wrap"></div>
+        </div>
+
+      </section>
+    </main>
+  </div>
+
+  <!-- Intake result — modal (pops up when the run completes). -->
+  <div class="result-overlay" id="result-overlay" aria-hidden="true">
+    <div class="result-modal panel" role="dialog" aria-modal="true" aria-labelledby="result-title">
+      <div class="lead-head">
+        <h2 id="result-title">Routing decision</h2>
+        <button class="modal-close" id="result-close" aria-label="Close">✕</button>
+      </div>
+      <div class="decision show" id="decision">
+        <span class="badge" id="decision-badge"></span>
+        <div class="summary" id="decision-summary"></div>
+        <div class="links" id="decision-links"></div>
+        <div class="meta" id="decision-meta"></div>
+      </div>
+      <button class="btn full" id="result-dismiss">Dismiss</button>
+    </div>
+  </div>
+
+  <!-- Incoming lead — modal form (opened from "New Lead" in the topbar). -->
+  <div class="lead-overlay" id="lead-overlay" aria-hidden="true">
+    <div class="lead-modal panel" role="dialog" aria-modal="true" aria-labelledby="lead-title">
+      <div class="lead-head">
+        <h2 id="lead-title">Incoming lead</h2>
+        <button class="modal-close" id="lead-close" aria-label="Close">✕</button>
+      </div>
+      <label for="scenario">Seeded lead</label>
+      <select id="scenario"></select>
+
+      <div class="form-row">
+        <div class="field">
+          <label for="from_name">From</label>
+          <input id="from_name" type="text" />
+        </div>
+        <div class="field">
+          <label for="from_email">Email</label>
+          <input id="from_email" type="text" />
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="field">
+          <label for="company">Company</label>
+          <input id="company" type="text" />
+        </div>
+        <div class="field">
+          <label for="source">Source</label>
+          <select id="source">
+            <option value="inbound email">Inbound email</option>
+            <option value="web form">Web form</option>
+            <option value="event CSV">Event CSV</option>
+          </select>
+        </div>
+      </div>
+
+      <label for="subject">Subject</label>
+      <input id="subject" type="text" />
+
+      <label for="body">Message</label>
+      <textarea id="body"></textarea>
+
+      <input id="leadid" type="hidden" />
+
+      <button class="btn full" id="submit">Submit lead</button>
+    </div>
+  </div>
+
+  <!-- Human-in-the-loop lead review (Fully Orchestrated) — chat-style prompt. -->
+  <div class="review-overlay" id="review-overlay" aria-hidden="true">
+    <div class="review-modal" role="dialog" aria-modal="true" aria-labelledby="review-title">
+      <div class="review-head">
+        <span class="review-avatar">◆</span>
+        <div>
+          <div class="review-from" id="review-title">lead-intake</div>
+          <div class="review-channel">#lead-routing · just now</div>
+        </div>
+      </div>
+      <div class="review-body">
+        <p class="review-msg">
+          <b id="review-lead-id"></b> scored
+          <b class="review-score" id="review-score"></b>, below the qualifying threshold of
+          <b id="review-threshold"></b>. Archive it, or is this a real lead?
+        </p>
+
+        <div class="review-lead">
+          <div class="review-lead-meta">
+            <span id="review-from"></span>
+            <span class="review-src" id="review-source"></span>
+          </div>
+          <div class="review-subject" id="review-subject"></div>
+          <div class="review-quote" id="review-body-text"></div>
+        </div>
+
+        <details class="review-signals">
+          <summary>Why it scored low</summary>
+          <ul id="review-signals"></ul>
+        </details>
+
+        <p class="review-ask">Not worth pursuing, or a real lead? If it's real, where does it go?</p>
+        <div class="review-actions">
+          <button class="btn route sales" id="review-sales">Sales</button>
+          <button class="btn route marketing" id="review-marketing">Marketing</button>
+          <button class="btn route nurture" id="review-nurture">Nurture</button>
+        </div>
+        <button class="btn ghost full-archive" id="review-archive">Confirm &mdash; archive it</button>
+        <div class="review-wait">Nothing is running while this sits here. The workflow can
+          wait days for you, and survives a worker restart.</div>
+        <div class="review-error" id="review-error"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toasts" id="toasts"></div>
+  <script src="/app.js?v=20260910j"></script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+# Pinned, verified versions (Python 3.14). Mirror of pyproject.toml deps.
+# `pip install -r requirements.txt` is equivalent to `pip install -e .`.
+temporalio[openai-agents]==1.28.0
+openai-agents==0.17.5
+openai<2.45.0
+# Required by temporalio.contrib.openai_agents (otel tracer provider); not pulled by the
+# [openai-agents] extra on its own.
+opentelemetry-api==1.42.1
+opentelemetry-sdk==1.42.1
+fastapi==0.137.1
+uvicorn[standard]==0.49.0
+pydantic==2.13.4
+tiktoken==0.13.0
+python-dotenv==1.2.2

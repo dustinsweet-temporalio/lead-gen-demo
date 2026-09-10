@@ -1,0 +1,54 @@
+# Durable Lead Intake — one-command stack.
+#
+#   1) create .env with your key:   cp .env.example .env   # set OPENAI_API_KEY
+#   2) docker compose up -d --build
+#   3) open http://localhost:8000   (Temporal UI at http://localhost:8233)
+#
+# Two services: the Temporal dev server, and the app (web server + its supervised worker
+# SUBPROCESS). "Crash worker / Restart worker" SIGKILLs the subprocess inside the app
+# container — the container stays up, exactly like the local run.
+
+services:
+  temporal:
+    image: temporalio/temporal:latest
+    command: server start-dev --ip 0.0.0.0 --log-level warn
+    ports:
+      - "7233:7233"   # gRPC frontend
+      - "8233:8233"   # Web UI
+    healthcheck:
+      test: ["CMD", "temporal", "operator", "namespace", "list", "--address", "127.0.0.1:7233"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+
+  app:
+    build: .
+    depends_on:
+      temporal:
+        condition: service_healthy
+    environment:
+      # Required — fail fast with a clear message if unset (put it in .env).
+      OPENAI_API_KEY: ${OPENAI_API_KEY:?set OPENAI_API_KEY in .env}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-5.5}
+      # Container networking: reach Temporal by service name; the UI link is for the host.
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_NAMESPACE: default
+      TEMPORAL_UI: http://localhost:8233
+      TASK_QUEUE_PREFIX: lead-intake
+      # Routing thresholds (also shown in the UI).
+      SALES_THRESHOLD: "75"
+      MARKETING_THRESHOLD: "50"
+      QUALIFY_THRESHOLD: "25"
+      # The lead that deterministically parks for human review. Set to LEAD-4102 to make
+      # the primary demo lead itself the borderline one.
+      ESCALATION_LEAD_ID: LEAD-4105
+      # Simulated latency of the email-verification provider. Raise it (e.g. 1800) to show
+      # a workflow that just waits mid-run; Fully Orchestrated waits on a durable timer.
+      EMAIL_VERIFY_DELAY_SECONDS: "3"
+      WEB_PORT: "8000"
+      HEARTBEAT_TIMEOUT_SECONDS: "2.5"
+      HEARTBEAT_INTERVAL_SECONDS: "1.0"
+      REVIEW_TIMEOUT_SECONDS: "604800"
+    ports:
+      - "8000:8000"
