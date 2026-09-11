@@ -265,7 +265,7 @@ async def review(workflow_id: str, body: dict):
     """
     if state.variant != config.ORCHESTRATED:
         return JSONResponse(
-            {"error": "lead review only applies to Fully Orchestrated"}, status_code=400
+            {"error": "lead review only applies to Temporal-Native Loop"}, status_code=400
         )
     if not state.supervisor.is_running():
         # An Update needs a worker to accept it. During the crash beat, restart first.

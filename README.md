@@ -4,18 +4,18 @@ An inbound-lead qualification agent (**real `gpt-5.5`** via the OpenAI Agents SD
 **four ways**, so you can show the observability and durability trade-offs live — a
 progression from *no Temporal at all* to *the workflow fully orchestrating the agent*:
 
-1. **Agent Only — no Temporal.** The plain Agents SDK drives the whole loop in an ordinary
+1. **Standalone Agent — no Temporal.** The plain Agents SDK drives the whole loop in an ordinary
    process. It works… until the process dies, at which point the run is **gone**: nothing
    resumes, no history, nothing to inspect. This is the "before".
-2. **Agent as Workflow — the agent inside one Activity.** One lead, one workflow, one
+2. **Simple Agent Loop — the agent inside one Activity.** One lead, one workflow, one
    opaque step. Crash mid-run → Temporal retries and it completes, but the agent restarts
    **from the beginning** and **re-spends every token** ("Wasted" jumps). Durable, but the
    agent is still a black box.
-3. **Activities as Tools — each step is an Activity.** The `OpenAIAgentsPlugin` turns every
+3. **Agent SDK Powered — each step is an Activity.** The `OpenAIAgentsPlugin` turns every
    model call and every tool call into its own named Activity, with inputs and outputs in
    the event history. Crash mid-run → resumes from the **last completed step**; the
    enrichment and verification calls already made are **not** repeated.
-4. **Fully Orchestrated — the workflow owns control flow, plus human review.** No agent
+4. **Temporal-Native Loop — the workflow owns control flow, plus human review.** No agent
    framework. The workflow scores the lead, applies the thresholds itself, and **parks for
    a human** when a lead falls below the qualifying score (a Temporal **Update**). Fewest
    activities, lowest spend, full audit history, and the wait costs nothing.
@@ -109,7 +109,7 @@ python -m app.worker.worker_main --variant agent_steps
 
 - **In the UI:** **Crash worker** (SIGKILLs the worker subprocess; it stays down) and
   **Restart worker**. That is the whole gesture; nothing else to type.
-- On **Agent Only** the same button becomes **Kill process**, which cancels the in-flight
+- On **Standalone Agent** the same button becomes **Kill process**, which cancels the in-flight
   run and discards its record — the point being that there is nothing to restart.
 - Equivalent from a shell, if you would rather do it by hand:
   ```bash
@@ -146,15 +146,15 @@ variant 4 catches it. Exactly one seeded lead ever escalates either way.
 
 ## Live demo script
 
-### Act 1 — Agent Only: no safety net
-1. Toggle to **Agent Only**. Submit **LEAD-4102**. It works — steps tick by in a plain
+### Act 1 — Standalone Agent: no safety net
+1. Toggle to **Standalone Agent**. Submit **LEAD-4102**. It works — steps tick by in a plain
    in-memory list, and it routes to sales.
 2. Run it again and hit **Kill process** mid-run. The run is gone: no workflow, no history,
    no checkpoint. Nothing to resume, and the tokens already spent are lost.
 3. *Point at the Temporal UI:* there is nothing there, because nothing was ever recorded.
 
-### Act 2 — Agent as Workflow: durable, but a black box
-1. Toggle to **Agent as Workflow**. Submit **LEAD-4102**. In the Temporal UI, filter by
+### Act 2 — Simple Agent Loop: durable, but a black box
+1. Toggle to **Simple Agent Loop**. Submit **LEAD-4102**. In the Temporal UI, filter by
    task queue `lead-intake-agent` and open `lead-4102-agent`.
 2. *Point at the history:* **one activity** — `run_lead_intake_agent`. Everything the agent
    does inside it is invisible.
@@ -163,8 +163,8 @@ variant 4 catches it. Exactly one seeded lead ever escalates either way.
 4. **Restart worker**. The activity starts over **from zero** — watch **Wasted** jump. It
    still completes and routes to sales.
 
-### Act 3 — Activities as Tools: the observability payoff
-1. Toggle to **Activities as Tools**. Submit **LEAD-4102**. Filter by
+### Act 3 — Agent SDK Powered: the observability payoff
+1. Toggle to **Agent SDK Powered**. Submit **LEAD-4102**. Filter by
    `lead-intake-agent-steps`, open `lead-4102-agent-steps`.
 2. *This is the payoff if you have ever debugged an orchestrator that only logs its own
    steps:* the history is
@@ -176,8 +176,8 @@ variant 4 catches it. Exactly one seeded lead ever escalates either way.
    activity**: the enrichment and verification calls already made are not repeated, and
    **Wasted** stays small. Same destination.
 
-### Act 4 — Fully Orchestrated: the human in the loop
-1. Toggle to **Fully Orchestrated**. Submit **LEAD-4105**. Filter by
+### Act 4 — Temporal-Native Loop: the human in the loop
+1. Toggle to **Temporal-Native Loop**. Submit **LEAD-4105**. Filter by
    `lead-intake-orchestrated`, open `lead-4105-orchestrated`.
 2. *Count the activities* — a handful, all business steps, and the model is called only
    where judgement is needed.
@@ -201,7 +201,7 @@ variant 4 catches it. Exactly one seeded lead ever escalates either way.
 - Submit **LEAD-4106** on any Temporal variant. The routing step throws a retryable
   failure on its first attempt (an "enrichment provider 503"). Temporal retries it
   automatically; the history shows two attempts and the lead still routes to sales.
-- On **Activities as Tools** / **Fully Orchestrated** the expensive reasoning is already
+- On **Agent SDK Powered** / **Temporal-Native Loop** the expensive reasoning is already
   banked in completed activities, so the retry costs almost nothing. On **Agent as
   Workflow** the same failure re-runs the entire agent — a second, cheaper way to make the
   same cost point.
@@ -215,7 +215,7 @@ Their email-verification provider can take 30–60 minutes. To show what that lo
 EMAIL_VERIFY_DELAY_SECONDS=1800 python -m app.web.server
 ```
 
-On **Fully Orchestrated** the wait is a **durable workflow timer**: submit the request,
+On **Temporal-Native Loop** the wait is a **durable workflow timer**: submit the request,
 park, collect the result. The Temporal UI shows the workflow simply waiting; there is no
 polling loop and no second pipeline stitched to a queue listener. Crash and restart the
 worker mid-wait — the timer survives, and the wait does not start over. (In the
@@ -226,7 +226,7 @@ restarts the wait — another instance of the same trade-off.)
 
 ## What to expect in the Temporal UI
 
-| | Agent as Workflow | Activities as Tools | Fully Orchestrated |
+| | Simple Agent Loop | Agent SDK Powered | Temporal-Native Loop |
 |---|---|---|---|
 | Task queue | `lead-intake-agent` | `lead-intake-agent-steps` | `lead-intake-orchestrated` |
 | Workflow type | `LeadIntakeAgentWorkflow` | `LeadIntakeAgentStepsWorkflow` | `LeadIntakeOrchestratedWorkflow` |
@@ -243,7 +243,7 @@ Re-running the same lead on the same variant while the first run is still open a
 ## Verifying it works
 
 ```bash
-# 1) Model-free: the whole Fully Orchestrated control flow, the deterministic escalation,
+# 1) Model-free: the whole Temporal-Native Loop control flow, the deterministic escalation,
 #    the review Update (accept + reject), and the durable timer. Seconds, no tokens.
 python -m tests.test_orchestration
 
@@ -257,16 +257,16 @@ python -m tests.smoke_test orchestrated
 
 ## How it works (one paragraph)
 
-The web server starts a Temporal Workflow per lead (or, for Agent Only, runs the agent in
+The web server starts a Temporal Workflow per lead (or, for Standalone Agent, runs the agent in
 an in-process task) and reads workflow state via Queries and event history via its own
 client — so the token meter and the flow diagram keep updating **even while the worker is
-dead**, which is what lets the UI narrate the crash. In Activities as Tools the
+dead**, which is what lets the UI narrate the crash. In Agent SDK Powered the
 `OpenAIAgentsPlugin` turns every model call into an Activity and each tool call is an
-`activity_as_tool` Activity. Fully Orchestrated uses no agent framework: the workflow calls
+`activity_as_tool` Activity. Temporal-Native Loop uses no agent framework: the workflow calls
 plain data activities plus two model activities, applies the score thresholds itself, and
 parks on `wait_condition` for a `lead_review` **Update** when a lead is below the
 qualifying score. Tokens are counted into **New** (banked by completed work) and **Wasted**
-(burned by attempts killed before completing); **Total = New + Wasted** (Agent Only has no
+(burned by attempts killed before completing); **Total = New + Wasted** (Standalone Agent has no
 Wasted bucket — a dead process loses the whole run).
 
 ## Notes & limitations

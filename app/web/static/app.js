@@ -173,16 +173,16 @@ async function pollHealth() {
 // --- variant ---------------------------------------------------------------
 
 const VARIANT_SUBTITLE = {
-  agent_only: "Agent Only · no Temporal — if the process dies, the run is gone",
-  agent: "Agent as Workflow · the whole agent runs inside one Temporal Activity",
-  agent_steps: "Activities as Tools · the agent calls tools; each call is its own Activity",
-  orchestrated: "Fully Orchestrated · the workflow leads; a human reviews low scores",
+  agent_only: "Standalone Agent · no Temporal — if the process dies, the run is gone",
+  agent: "Simple Agent Loop · the whole agent runs inside one Temporal Activity",
+  agent_steps: "Agent SDK Powered · the agent calls tools; each call is its own Activity",
+  orchestrated: "Temporal-Native Loop · the workflow leads; a human reviews low scores",
 };
 const VARIANT_LABEL = {
-  agent_only: "Agent Only",
-  agent: "Agent as Workflow",
-  agent_steps: "Activities as Tools",
-  orchestrated: "Fully Orchestrated",
+  agent_only: "Standalone Agent",
+  agent: "Simple Agent Loop",
+  agent_steps: "Agent SDK Powered",
+  orchestrated: "Temporal-Native Loop",
 };
 
 function setVariantUI(variant) {
@@ -194,7 +194,7 @@ function setVariantUI(variant) {
   // that variant's failure mode — the run is discarded with nothing to resume.
   $("crash").textContent = agentOnly ? "Kill process" : "Crash worker";
   $("restart").disabled = agentOnly;
-  $("restart").title = agentOnly ? "Agent Only has no worker to restart" : "";
+  $("restart").title = agentOnly ? "Standalone Agent has no worker to restart" : "";
   $("flow").style.display = agentOnly ? "none" : "flex";
   $("ao-wrap").style.display = agentOnly ? "block" : "none";
   progressInit();
@@ -209,7 +209,7 @@ async function switchVariant(variant) {
     clearLiveRun();
     toast(
       variant === "agent_only"
-        ? "Switched to Agent Only — no Temporal, no worker."
+        ? "Switched to Standalone Agent — no Temporal, no worker."
         : `Switched to ${VARIANT_LABEL[variant]} — worker restarting.`,
       "ok"
     );
