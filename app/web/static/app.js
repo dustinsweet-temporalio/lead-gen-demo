@@ -777,6 +777,7 @@ function renderTokens(tok) {
   }
   ui.lastTotals = { new: tok.new, wasted: naWasted ? 0 : tok.wasted, total: tok.total };
   ui.wastedIsNA = naWasted;
+  ui.lastEstimated = !!tok.estimated;
   renderTime();
 
   const total = Math.max(tok.total, 1);
@@ -1047,6 +1048,12 @@ async function crashWorker() {
       await postJSON(`/api/agent_only/kill/${ui.wf}`);
       if (ui.poll) { clearInterval(ui.poll); ui.poll = null; }
       stopStopwatch();
+      // Everything spent on this run is gone — there is no durable record to resume from,
+      // so none of it was banked. Move the whole New figure into Wasted and zero New, so
+      // the meter says what actually happened: 100% waste. (Until the kill, Wasted reads
+      // N/A for this variant because there is no bucket to put anything in.)
+      const spent = ui.lastTotals.total || ui.lastTotals.new || 0;
+      renderTokens({ new: 0, wasted: spent, total: spent, estimated: ui.lastEstimated });
       renderAgentOnly(null, true);
       if (!reduceMotion) { document.body.classList.add("glitch"); setTimeout(() => document.body.classList.remove("glitch"), 1000); }
       toast("Process killed — the run is gone. Nothing to resume.", "err");
