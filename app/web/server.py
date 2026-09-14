@@ -119,6 +119,10 @@ async def health():
         "temporal_connected": state.client is not None,
         "worker_running": state.supervisor.is_running(),
         "temporal_ui": cfg.temporal_ui,
+        # The UI builds its own workflow deep links, so it needs the namespace rather
+        # than assuming "default" — on Temporal Cloud this is the fully-qualified
+        # <namespace>.<account> form the platform injects.
+        "temporal_namespace": cfg.temporal_namespace,
         "variant": state.variant,
         "durable": state.variant != config.AGENT_ONLY,
         "task_queue": (

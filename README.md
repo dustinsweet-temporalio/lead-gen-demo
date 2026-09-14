@@ -20,7 +20,8 @@ progression from *no Temporal at all* to *the workflow fully orchestrating the a
    a human** when a lead falls below the qualifying score (a Temporal **Update**). Fewest
    activities, lowest spend, full audit history, and the wait costs nothing.
 
-Every variant calls the real model, and the only credential is `OPENAI_API_KEY`. The tool
+Every variant calls the real model, and the only credential you supply is `OPENAI_API_KEY`
+(a deployed instance also gets Temporal Cloud credentials from its platform). The tool
 surfaces — **CRM**, **lead scoring**, **contact enrichment**, **email verification**,
 **Slack** — are in-process and fixture-backed, so the demo runs fully offline apart from
 the model. No vendor APIs, no vendor names in the code.
@@ -53,6 +54,12 @@ TEMPORAL_NAMESPACE=default
 TEMPORAL_UI=http://localhost:8233
 TASK_QUEUE_PREFIX=lead-intake
 WEB_PORT=8000
+
+# Temporal Cloud instead of the dev server: set both, and point TEMPORAL_ADDRESS at the
+# namespace endpoint, TEMPORAL_NAMESPACE at the <namespace>.<account> form, and
+# TEMPORAL_UI at https://cloud.temporal.io. Unset = plaintext local, the default.
+# TEMPORAL_API_KEY=
+# TEMPORAL_TLS=true
 
 # Crash detection: a killed worker is noticed in ~2s
 HEARTBEAT_TIMEOUT_SECONDS=2.5
@@ -285,7 +292,12 @@ Wasted bucket — a dead process loses the whole run).
   beside the real stopwatch. Be straightforward about that if asked: the point it makes
   (a crash costs wall-clock, not just tokens) is real, the number is illustrative. Nothing
   simulated reaches the durable record.
-- Local dev server only; no Temporal Cloud code, no TLS, no API key on the Temporal side.
+- Runs against a local dev server by default: leave `TEMPORAL_API_KEY` and `TEMPORAL_TLS`
+  unset and the client connects in plaintext to `TEMPORAL_ADDRESS`, exactly as it always
+  has. Set both (the deployed demo does) and the same code connects to Temporal Cloud —
+  there is no separate Cloud code path. `TEMPORAL_NAMESPACE` is then the fully-qualified
+  `<namespace>.<account>` form, and `TEMPORAL_UI=https://cloud.temporal.io` makes the
+  in-app workflow links point at the Cloud UI.
 - A Temporal **Update** needs a live worker to be accepted, so if you crash the worker
   while parked at the review gate, restart it before clicking the review button. The UI
   refuses with a directive message rather than leaving you on a spinner. (Measured

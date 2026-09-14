@@ -155,8 +155,9 @@ async function pollHealth() {
     $("dot-temporal").className = "dot " + (agentOnly ? "na" : h.temporal_connected ? "ok" : "bad");
     $("dot-worker").className = "dot " + (agentOnly ? "na" : h.worker_running ? "ok" : "bad");
     $("queue-label").textContent = h.task_queue ? h.task_queue : "";
+    const ns = h.temporal_namespace || "default";
     $("temporal-link").href = ui.wf && !agentOnly
-      ? `${h.temporal_ui}/namespaces/default/workflows/${ui.wf}` : h.temporal_ui;
+      ? `${h.temporal_ui}/namespaces/${ns}/workflows/${ui.wf}` : h.temporal_ui;
     if (h.time_multiplier) { ui.timeMultiplier = h.time_multiplier; renderTime(); }
     if (h.thresholds) {
       ui.thresholds = h.thresholds;

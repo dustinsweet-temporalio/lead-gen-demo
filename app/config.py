@@ -54,6 +54,16 @@ class Config:
     model: str
     temporal_address: str
     temporal_namespace: str
+    # Temporal Cloud auth. Both unset for a local `temporal server start-dev`, which needs
+    # neither; the platform sets them when the demo is deployed (TEMPORAL_API_KEY is the
+    # namespace-scoped key, TEMPORAL_TLS is "true"). Absent -> a plaintext connection,
+    # byte for byte what this demo did before it ran anywhere but a laptop.
+    temporal_api_key: str | None
+    temporal_tls: bool
+    # Base URL of the Temporal UI: http://localhost:8233 locally, https://cloud.temporal.io
+    # when deployed. The workflow deep link is built from this plus `temporal_namespace`,
+    # so on Cloud the namespace must be the fully-qualified `<namespace>.<account>` form —
+    # which is exactly what the platform injects.
     temporal_ui: str
     task_queue_prefix: str
     web_port: int
@@ -90,6 +100,20 @@ class Config:
     # durable record, so the workflow history and the token figures stay measured.
     time_multiplier: float
 
+    @property
+    def temporal_connect_options(self) -> dict:
+        """Extra `Client.connect` kwargs for Temporal Cloud; empty for a local dev server.
+
+        One place, so the web server's client and the worker's client can never drift
+        into connecting with different credentials.
+        """
+        options: dict = {}
+        if self.temporal_api_key:
+            options["api_key"] = self.temporal_api_key
+        if self.temporal_tls:
+            options["tls"] = True
+        return options
+
     def task_queue(self, variant: str) -> str:
         """Per-variant task queue, so the Temporal UI filters cleanly per variant."""
         suffix = _QUEUE_SUFFIX.get(variant)
@@ -110,6 +134,9 @@ def get_config() -> Config:
         model=os.getenv("OPENAI_MODEL", "gpt-5.5"),
         temporal_address=os.getenv("TEMPORAL_ADDRESS", "localhost:7233"),
         temporal_namespace=os.getenv("TEMPORAL_NAMESPACE", "default"),
+        temporal_api_key=os.getenv("TEMPORAL_API_KEY") or None,
+        temporal_tls=os.getenv("TEMPORAL_TLS", "false").strip().lower()
+        in ("1", "true", "yes"),
         temporal_ui=os.getenv("TEMPORAL_UI", "http://localhost:8233"),
         task_queue_prefix=os.getenv("TASK_QUEUE_PREFIX", "lead-intake"),
         web_port=int(os.getenv("WEB_PORT", "8000")),

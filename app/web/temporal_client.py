@@ -38,13 +38,22 @@ _EVENT_MAP = {
 
 async def connect_client(variant: str) -> Client:
     cfg = get_config()
+    # Empty against a local dev server; carries the API key + TLS when the demo is
+    # deployed against Temporal Cloud. Same options the worker uses.
+    options = cfg.temporal_connect_options
     if variant == config.AGENT_STEPS:
         # Bare plugin on the client side ensures serialization matches the worker.
         return await Client.connect(
-            cfg.temporal_address, namespace=cfg.temporal_namespace, plugins=[OpenAIAgentsPlugin()]
+            cfg.temporal_address,
+            namespace=cfg.temporal_namespace,
+            plugins=[OpenAIAgentsPlugin()],
+            **options,
         )
     return await Client.connect(
-        cfg.temporal_address, namespace=cfg.temporal_namespace, data_converter=pydantic_data_converter
+        cfg.temporal_address,
+        namespace=cfg.temporal_namespace,
+        data_converter=pydantic_data_converter,
+        **options,
     )
 
 

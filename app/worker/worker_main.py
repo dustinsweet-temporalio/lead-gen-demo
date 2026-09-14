@@ -75,18 +75,26 @@ async def run_worker(variant: str) -> None:
     config.require_api_key()  # fail fast with a clear message if the key is missing
     cfg = config.get_config()
 
+    # Empty against a local dev server; carries the API key + TLS when the demo is
+    # deployed against Temporal Cloud. Same options the web server's client uses.
+    options = cfg.temporal_connect_options
+
     if variant == config.AGENT_STEPS:
         # Only this variant runs the OpenAI Agents SDK in the workflow (the plugin turns
         # model calls into activities). Agent as Workflow uses the SDK inside its one
         # activity; Fully Orchestrated uses no SDK — both use the plain pydantic converter.
         client = await Client.connect(
-            cfg.temporal_address, namespace=cfg.temporal_namespace, plugins=[_plugin()]
+            cfg.temporal_address,
+            namespace=cfg.temporal_namespace,
+            plugins=[_plugin()],
+            **options,
         )
     else:
         client = await Client.connect(
             cfg.temporal_address,
             namespace=cfg.temporal_namespace,
             data_converter=pydantic_data_converter,
+            **options,
         )
 
     task_queue = cfg.task_queue(variant)
